@@ -84,9 +84,10 @@ FetchContent_Declare(imgui
 )
 
 # GLAD - OpenGL loader (CRITICAL - WAS MISSING!)
+# FIX: Use master branch instead of main (main doesn't exist on this repo)
 FetchContent_Declare(glad
     GIT_REPOSITORY https://github.com/Dav1dde/glad.git
-    GIT_TAG main
+    GIT_TAG master
     GIT_SHALLOW TRUE
 )
 
