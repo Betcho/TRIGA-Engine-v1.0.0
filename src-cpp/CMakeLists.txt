@@ -152,19 +152,20 @@ target_include_directories(triga_editor PRIVATE
     ${glm_SOURCE_DIR}
     ${imgui_SOURCE_DIR}
     ${spdlog_SOURCE_DIR}/include
-    ${glad_SOURCE_DIR}/include  # ← CRITICAL: Was missing!
+    ${glad_SOURCE_DIR}/include
     ${OPENGL_INCLUDE_DIR}
 )
 
 # ============================================================================
-# LINK LIBRARIES - NOW INCLUDING GLAD
+# LINK LIBRARIES - NOW INCLUDING GLAD AND IMGUI
 # ============================================================================
 
 target_link_libraries(triga_editor PRIVATE
     glfw
     OpenGL::GL
+    imgui
     spdlog::spdlog
-    glad  # ← CRITICAL: Was missing!
+    glad
     Threads::Threads
 )
 
