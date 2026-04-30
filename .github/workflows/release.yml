@@ -12,30 +12,60 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
     
     - name: Setup CMake
       uses: lukka/get-cmake@latest
+    
+    - name: Configure Build System (Verbose)
+      working-directory: src-cpp
+      run: |
+        cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release --debug-output --verbose
+      shell: cmd
+      
+    - name: Build (All Files - Verbose)
+      working-directory: src-cpp/build
+      run: |
+        cmake --build . --config Release --parallel --verbose
+      shell: cmd
+    
+    - name: Verify Executable
+      working-directory: src-cpp/build/bin
+      run: |
+        echo Checking for triga_editor.exe...
+        if not exist triga_editor.exe (
+          echo ERROR: triga_editor.exe was not generated!
+          dir /s src-cpp\build
+          exit /b 1
+        )
+        echo Executable found. File info:
+        dir triga_editor.exe
+        for %%A in (triga_editor.exe) do (
+          set SIZE=%%~zA
+          echo File size: !SIZE! bytes
+          if !SIZE! LSS 500000 (
+            echo WARNING: Executable is smaller than 500 KB
+            echo This indicates not all source files were compiled.
+            echo Please check CMakeLists.txt for GLOB_RECURSE configuration.
+          )
+        )
+      shell: cmd
     
     - name: Generate ICO from SVG
       run: |
         magick assets/triga-logo.svg -define icon:auto-resize=256,128,64,48,32,16 assets/triga-icon.ico
     
-    - name: Configure
-      working-directory: src-cpp
-      run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
-      
-    - name: Build
-      working-directory: src-cpp/build
-      run: cmake --build . --config Release --parallel
-      
     - name: Install NSIS
       run: |
         choco install nsis -y
+      shell: cmd
       
     - name: Build Installer
       working-directory: .
       run: |
         makensis installer.nsi
+      shell: cmd
     
     - name: Create Release
       uses: softprops/action-gh-release@v1
@@ -44,9 +74,107 @@ jobs:
         files: |
           src-cpp/build/bin/triga_editor.exe
           src-cpp/build/bin/triga_editor.pdb
-          src-cpp/build/bin/assets/**/*
           assets/triga-icon.ico
           TRIGA-Setup.exe
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake build-essential libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev
+    
+    - name: Configure Build System (Verbose)
+      working-directory: src-cpp
+      run: |
+        cmake -S . -B build -DCMAKE_BUILD_TYPE=Release --debug-output --verbose
+    
+    - name: Build (All Files - Verbose)
+      working-directory: src-cpp/build
+      run: |
+        cmake --build . --config Release --parallel --verbose
+    
+    - name: Verify Executable
+      working-directory: src-cpp/build/bin
+      run: |
+        echo "Checking for triga_editor..."
+        if [ ! -f triga_editor ]; then
+          echo "ERROR: triga_editor was not generated!"
+          find src-cpp/build -type f -name "triga_editor*"
+          exit 1
+        fi
+        echo "Executable found. File info:"
+        ls -lh triga_editor
+        SIZE=$(stat --format=%s triga_editor)
+        echo "File size: $SIZE bytes"
+        if [ $SIZE -lt 500000 ]; then
+          echo "WARNING: Executable is smaller than 500 KB"
+          echo "This indicates not all source files were compiled."
+          echo "Please check CMakeLists.txt for GLOB_RECURSE configuration."
+        fi
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: |
+          src-cpp/build/bin/triga_editor
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Configure Build System (Verbose)
+      working-directory: src-cpp
+      run: |
+        cmake -S . -B build -DCMAKE_BUILD_TYPE=Release --debug-output --verbose
+    
+    - name: Build (All Files - Verbose)
+      working-directory: src-cpp/build
+      run: |
+        cmake --build . --config Release --parallel --verbose
+    
+    - name: Verify Executable
+      working-directory: src-cpp/build/bin
+      run: |
+        echo "Checking for triga_editor..."
+        if [ ! -f triga_editor ]; then
+          echo "ERROR: triga_editor was not generated!"
+          find src-cpp/build -type f -name "triga_editor*"
+          exit 1
+        fi
+        echo "Executable found. File info:"
+        ls -lh triga_editor
+        SIZE=$(stat -f%z triga_editor)
+        echo "File size: $SIZE bytes"
+        if [ $SIZE -lt 500000 ]; then
+          echo "WARNING: Executable is smaller than 500 KB"
+          echo "This indicates not all source files were compiled."
+          echo "Please check CMakeLists.txt for GLOB_RECURSE configuration."
+        fi
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: |
+          src-cpp/build/bin/triga_editor
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
